@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>CSV Search</title>
+    <link rel="stylesheet"
+        href="css/bootstrap.min.css" />
+    <script src="js/papaparse.min.js"></script>
+    <style>
+        /* テーブルに罫線を入れる */
+        #results td,
+        #results th {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        /* 偶数行を背景色を変更する */
+        #results tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* マウスが合わさった時に背景色を変更する */
+        #results tr:hover {
+            background-color: #ddd;
+        }
+
+        /* 見出しをスタイリングする */
+        #results th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: left;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        /* サジェストを表示するときのスタイル */
+        #suggestions {
+            display: none;
+            position: absolute;
+            z-index: 1;
+            background-color: #f1f1f1;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* サジェストをマウスで選択するときのスタイル */
+        .suggestion {
+            cursor: pointer;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* サジェストをマウスで合わせるときのスタイル */
+        .suggestion:hover {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>CSV Search</h1>
+        <div class="form-group">
+            <label for="csv-file">CSV ファイル:</label>
+            <input type="file" class="form-control-file" id="csv-file" accept=".csv" onchange="loadFile(this)" />
+        </div>
+        <div class="form-group">
+            <label for="search-string">検索文字列:</label>
+            <input type="text" class="form-control" id="search-string" placeholder="検索文字列を入力"
+                onkeyup="showSuggestions(this.value,this.value.length)" />
+            <input type="checkbox" id="toggle-suggest" checked />
+            <label for="toggle-suggest">サジェストを表示</label>
+            <div id="suggestions"></div>
+        </div>
+        <div class="form-group">
+            <label for="column-select">列:</label>
+            <select class="form-control" id="column-select">
+                <option value="All">All</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <button type="button" class="btn btn-primary" onclick="search()">
+                検索
+            </button>
+        </div>
+        <table id="results"></table>
+    </div>
+    <script>
+        // CSV ファイルを読み込む
+        function loadFile(input) {
+            const file = input.files[0]; Papa.parse(file, {
+                complete: function (results) {
+                    // 列名を select 要素のオプションとして追加する
+                    const select = document.getElementById("column-select");
+                    for (const columnName of results.data[0]) {
+                        const option = document.createElement("option");
+                        option.value = columnName;
+                        option.innerText = columnName;
+                        select.appendChild(option);
+                    }
+
+                    // 表示する列名を格納する変数を初期化する
+                    window.columnNames = results.data[0];
+
+                    // 表示するデータを格納する変数を初期化する
+                    window.data = results.data.slice(1);
+                }
+            });
+        }
+
+        // サジェストを表示する
+        function showSuggestions(searchString,searchStringLength) {
+            
+            // サジェストを表示するかどうかを取得する
+            // 範囲が広くなりすぎるので、入力欄が3文字以上になってからサジェスト開始
+            if (searchStringLength < 3) {
+                return;
+            }
+            // サジェスト表示のチェックなければ終了
+            const toggleSuggest = document.getElementById("toggle-suggest");
+            if (!toggleSuggest.checked) {
+                return;
+            }
+
+            // サジェストを表示する
+            const suggestions = document.getElementById("suggestions");
+            suggestions.innerHTML = "";
+            suggestions.style.display = "block";
+
+            // 検索文字列に一致する値を検索し、サジェストとして表示する
+            const data = window.data;
+            for (const row of data) {
+                for (const value of row) {
+                    // 検索文字列に一致する場合、サジェストとして表示する
+                    if (value.includes(searchString)) {
+                        const suggestion = document.createElement("div");
+                        suggestion.className = "suggestion";
+                        suggestion.innerText = value;
+                        suggestion.addEventListener("click", function () {
+                            // サジェストをクリックしたとき、検索文字列に反映する
+                            const searchStringInput = document.getElementById(
+                                "search-string"
+                            );
+                            searchStringInput.value = value;
+                            // サジェスト入力後、サジェスト非表示
+                            suggestions.style.display = "none";
+                        });
+                        suggestions.appendChild(suggestion);
+                    }
+                }
+            }
+        }
+        // 検索を実行する
+        function search() {
+            // 検索文字列を取得する
+            const searchStringInput = document.getElementById("search-string");
+            const searchString = searchStringInput.value;
+
+            // 列名を取得する
+            const columnSelect = document.getElementById("column-select");
+            const columnName = columnSelect.options[columnSelect.selectedIndex].value;
+
+            // 検索結果を表示する
+            const results = document.getElementById("results");
+            results.innerHTML = "";
+
+            // テーブルの見出し行を作成する
+            const thead = results.createTHead();
+            const row = thead.insertRow();
+            for (const column of window.columnNames) {
+                const cell = row.insertCell();
+                cell.innerText = column;
+            }
+
+            // 検索文字列に一致する行を検索する
+            const data = window.data;
+            for (const row of data) {
+                for (const [index, value] of row.entries()) {
+                    if (
+                        columnName === "All" ||
+                        columnName === window.columnNames[index]
+                    ) {
+                        // 列名が「All」または、指定された列名と一致する場合、
+                        // かつ、検索文字列に一致する場合、検索結果を表示する
+                        if (value.includes(searchString)) {
+                            const tbody = results.createTBody();
+                            const resultRow = tbody.insertRow();
+                            for (const [cellIndex, cellValue] of row.entries()) {
+                                const cell = resultRow.insertCell();
+                                // Path(判定あり)または、URLが含まれる場合は、クリック可能なリンクとして表示する
+                                if (
+                                    cellValue.match(/^\w:./) ||
+                                    (window.columnNames[cellIndex].includes("Path") ||
+                                        window.columnNames[cellIndex].includes("URL"))
+                                ) {
+                                    const a = document.createElement("a");
+                                    a.href = cellValue;
+                                    a.innerText = cellValue;
+                                    a.target = "_blank";
+                                    a.addEventListener("click", function (event) {
+                                        // リンクをクリックしたとき、クリップボードにコピーする
+                                        event.preventDefault();
+                                        navigator.clipboard.writeText(cellValue);
+                                    });
+                                    cell.appendChild(a);
+                                } else {
+                                    cell.innerText = cellValue;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
