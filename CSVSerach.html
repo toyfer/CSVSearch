@@ -75,9 +75,16 @@
             <div id="suggestions"></div>
         </div>
         <div class="form-group">
-            <label for="column-select">列:</label>
+            <label for="column-select">検索列:</label>
             <select class="form-control" id="column-select">
                 <option value="All">All</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="string-encoding">文字コード:</label>
+            <select class="form-control" id="string-encoding">
+                <option value="Shift_JIS">Shift_JIS</option>
+                <option value="utf-8">utf-8</option>
             </select>
         </div>
         <div class="form-group">
@@ -91,6 +98,7 @@
         // CSV ファイルを読み込む
         function loadFile(input) {
             const file = input.files[0]; Papa.parse(file, {
+                encoding: document.getElementById("string-encoding").value,
                 complete: function (results) {
                     // 列名を select 要素のオプションとして追加する
                     const select = document.getElementById("column-select");
