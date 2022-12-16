@@ -222,6 +222,17 @@
                 }
             }
         }
+
+        // Enterキー待ち用イベント
+        document.getElementById("search-string").addEventListener('keydown',pressEnter);
+
+        // Enterキーが押された際にsearchを起動する関数
+        function pressEnter(e) {
+            if(e.code === 'Enter') {
+                search();
+            }
+        }
+        
     </script>
 </body>
 
